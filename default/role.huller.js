@@ -135,27 +135,28 @@ const roleHuller = {
         }
 
         // === HARVEST PHASE ===
+        // === HARVEST PHASE ===
         if (linkMode) {
-            // withdraw only from STORAGE
+            // Link mode: always withdraw from storage
             if (room.storage && room.storage.store[RESOURCE_ENERGY] > 0) {
                 if (creep.withdraw(room.storage, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
                     creep.moveTo(room.storage, { visualizePathStyle: { stroke: '#ffaa00' } });
                 }
                 creep.memory.action = "Withdrawing from storage (link mode)";
-                creep.memory.nextAction = "Deliver to spawn/extensions/towers";
+                creep.memory.nextAction = "Deliver to targets";
                 return;
             }
         } else {
-            // withdraw from assigned container
+            // Normal mode: containers first
             const assignedId = creep.memory.assignedContainerId;
             let assignedContainer = assignedId ? Game.getObjectById(assignedId) : null;
-
-            if (!assignedContainer) {
+        
+            if (!assignedContainer || assignedContainer.store[RESOURCE_ENERGY] === 0) {
                 assignContainerToHuller(creep);
                 if (creep.memory.assignedContainerId)
                     assignedContainer = Game.getObjectById(creep.memory.assignedContainerId);
             }
-
+        
             if (assignedContainer && assignedContainer.store[RESOURCE_ENERGY] > 0) {
                 if (creep.withdraw(assignedContainer, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
                     creep.moveTo(assignedContainer, { visualizePathStyle: { stroke: '#ffaa00' } });
@@ -164,7 +165,7 @@ const roleHuller = {
                 creep.memory.nextAction = "Deliver to targets";
                 return;
             }
-
+        
             // fallback: pick up dropped energy
             const dropped = creep.pos.findClosestByPath(FIND_DROPPED_RESOURCES, {
                 filter: r => r.resourceType === RESOURCE_ENERGY && r.amount > 50
@@ -177,12 +178,23 @@ const roleHuller = {
                 creep.memory.nextAction = "Deliver to targets";
                 return;
             }
+        
+            // FINAL fallback: storage if available
+            if (room.storage && room.storage.store[RESOURCE_ENERGY] > 0) {
+                if (creep.withdraw(room.storage, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
+                    creep.moveTo(room.storage, { visualizePathStyle: { stroke: '#ffaa00' } });
+                }
+                creep.memory.action = "Withdrawing from storage (backup)";
+                creep.memory.nextAction = "Deliver to targets";
+                return;
+            }
         }
-
+        
         // idle near spawn if nothing else
         creep.memory.action = "No energy available";
         const spawns = creep.room.find(FIND_MY_SPAWNS);
         if (spawns.length > 0) creep.moveTo(spawns[0], { range: 2 });
+        
     }
 };
 
